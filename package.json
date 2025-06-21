@@ -1,0 +1,48 @@
+{
+  "name": "vite-plugin-image-sizes",
+  "version": "1.0.0",
+  "description": "A Vite plugin to automatically add width and height attributes to img and source tags.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc",
+    "test:build": "vite build",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ozekimasaki/vite-plugin-image-sizes.git"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "image",
+    "size",
+    "cls"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ozekimasaki/vite-plugin-image-sizes/issues"
+  },
+  "homepage": "https://github.com/ozekimasaki/vite-plugin-image-sizes#readme",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "sharp": "^0.34.2"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/node": "^20.12.12",
+    "@types/sharp": "^0.31.1",
+    "canvas": "^3.1.1",
+    "glob": "^11.0.3",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}
