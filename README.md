@@ -1,5 +1,9 @@
 # vite-plugin-image-sizes
 
+[![MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-646cff?style=flat-square&logo=Vite&logoColor=white)](https://vitejs.dev/)
+
 A Vite plugin that automatically adds `width` and `height` attributes to `<img>` and `<source>` tags in your HTML. By embedding image dimensions during the build process, it helps prevent Cumulative Layout Shift (CLS) and improves web performance.
 
 This plugin uses the high-performance [sharp](https://sharp.pixelplumbing.com/) library for image processing.

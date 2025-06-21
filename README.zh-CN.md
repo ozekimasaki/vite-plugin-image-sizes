@@ -1,5 +1,9 @@
 # vite-plugin-image-sizes
 
+[![MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-646cff?style=flat-square&logo=Vite&logoColor=white)](https://vitejs.dev/)
+
 一个 Vite 插件，可以自动为 HTML 中的 `<img>` 和 `<source>` 标签添加 `width` 和 `height` 属性。通过在构建时嵌入图像尺寸，有助于防止累积布局偏移 (CLS) 并提高 Web 性能。
 
 该插件使用高性能的 [sharp](https://sharp.pixelplumbing.com/) 库进行图像处理。

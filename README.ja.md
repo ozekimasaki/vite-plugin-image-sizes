@@ -1,5 +1,9 @@
 # vite-plugin-image-sizes
 
+[![MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-646cff?style=flat-square&logo=Vite&logoColor=white)](https://vitejs.dev/)
+
 HTML内の`<img>`および`<source>`タグに、`width`と`height`属性を自動的に追加するViteプラグインです。ビルド時に画像の寸法を埋め込むことで、CLS (Cumulative Layout Shift) を防ぎ、ウェブパフォーマンスを向上させます。
 
 画像処理には高機能な [sharp](https://sharp.pixelplumbing.com/) ライブラリを使用しています。
