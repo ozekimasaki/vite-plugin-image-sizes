@@ -27,16 +27,18 @@
 
 ```bash
 # npm
-npm install vite-plugin-image-sizes sharp --save-dev
+npm install vite-plugin-image-sizes
 
 # yarn
-yarn add vite-plugin-image-sizes sharp --dev
+yarn add vite-plugin-image-sizes
 
 # pnpm
-pnpm add -D vite-plugin-image-sizes sharp
+pnpm add -D vite-plugin-image-sizes
 ```
 
-**重要:** 此插件将 `sharp` 作为对等依赖项 (peer dependency)。请务必与插件一同安装。
+**重要：**  
+自 v1.0.4 起，`sharp` 和 `glob` 都已作为运行时依赖内置于插件中。  
+用户无需单独安装这些依赖。
 
 ## 使用方法
 
