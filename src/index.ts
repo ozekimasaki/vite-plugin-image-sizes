@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import sharp from 'sharp';
 import { load } from 'cheerio';
-import { glob } from 'glob';
+import * as glob from 'glob';
 
 export interface ImageSizeOptions {
   addLazyLoading?: boolean;
@@ -81,7 +81,7 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       }
       
       const outDir = config.build.outDir || 'dist';
-      const htmlFiles = await glob(`${outDir}/**/*.html`);
+      const htmlFiles = await glob.glob(`${outDir}/**/*.html`);
 
       for (const file of htmlFiles) {
         const htmlContent = await fs.readFile(file, 'utf-8');

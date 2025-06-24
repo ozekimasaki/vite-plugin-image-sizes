@@ -1,0 +1,23 @@
+# Directories
+node_modules/
+src/
+public/
+
+# Editor-specific
+.vscode/
+.cursor/
+
+# Config files
+vite.config.ts
+tsconfig.json
+*.cjs
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS-generated files
+.DS_Store
+Thumbs.db 
