@@ -27,16 +27,18 @@ HTML内の`<img>`および`<source>`タグに、`width`と`height`属性を自�
 
 ```bash
 # npm
-npm install vite-plugin-image-sizes sharp --save-dev
+npm install vite-plugin-image-sizes
 
 # yarn
-yarn add vite-plugin-image-sizes sharp --dev
+yarn add vite-plugin-image-sizes
 
 # pnpm
-pnpm add -D vite-plugin-image-sizes sharp
+pnpm add -D vite-plugin-image-sizes
 ```
 
-**重要:** このプラグインは `sharp` をピア依存関係として利用します。必ず一緒にインストールしてください。
+**重要:**
+v1.0.4 以降、`sharp` および `glob` はプラグインに内包されています。
+利用者が個別にインストールする必要はありません。
 
 ## 使い方
 

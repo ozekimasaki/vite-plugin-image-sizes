@@ -27,16 +27,18 @@ This plugin uses the high-performance [sharp](https://sharp.pixelplumbing.com/) 
 
 ```bash
 # npm
-npm install vite-plugin-image-sizes sharp --save-dev
+npm install vite-plugin-image-sizes
 
 # yarn
-yarn add vite-plugin-image-sizes sharp --dev
+yarn add vite-plugin-image-sizes
 
 # pnpm
-pnpm add -D vite-plugin-image-sizes sharp
+pnpm add -D vite-plugin-image-sizes
 ```
 
-**Important:** This plugin uses `sharp` as a peer dependency. You must install it alongside the plugin.
+**Important:**
+From v1.0.4, both `sharp` and `glob` are bundled as runtime dependencies.
+You do **not** need to install them separately.
 
 ## Usage
 
