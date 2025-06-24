@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-image-sizes",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A Vite plugin to automatically add width and height attributes to img and source tags.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "build": "npm run clean && tsc",
     "test:build": "vite build",
     "prepublishOnly": "npm run build"
@@ -42,6 +42,7 @@
     "@types/glob": "^8.1.0",
     "@types/node": "^20.12.12",
     "@types/sharp": "^0.31.1",
+    "rimraf": "^6.0.1",
     "typescript": "^5.4.5",
     "vite": "^5.2.11"
   }
