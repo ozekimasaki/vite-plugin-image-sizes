@@ -5,13 +5,13 @@ import path from 'path';
 import fs from 'fs/promises';
 import sharp from 'sharp';
 import { load } from 'cheerio';
-import * as glob from 'glob';
+import { glob } from 'glob';
 
 export interface ImageSizeOptions {
   addLazyLoading?: boolean;
 }
 
-async function processHtml(html: string, config: ResolvedConfig, options: ImageSizeOptions): Promise<string> {
+async function processHtml(html: string, config: ResolvedConfig, options: ImageSizeOptions, baseDir: string): Promise<string> {
   const $ = load(html);
   const elements = $('img, source');
   const imagePromises: Promise<void>[] = [];
@@ -30,8 +30,27 @@ async function processHtml(html: string, config: ResolvedConfig, options: ImageS
         return;
       }
       
-      // All paths in the final HTML are root-relative
-      const imagePath = path.join(config.publicDir, imageUrl);
+      // Remove leading slash for path joining
+      const imageSrc = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
+
+      // In dev mode, assets can be in /public or in the project root.
+      // We check both locations.
+      const isDev = config.command === 'serve';
+      const publicPath = path.join(config.publicDir, imageSrc);
+      const rootPath = path.join(config.root, imageSrc);
+
+      let imagePath: string;
+
+      if (isDev) {
+        try {
+          await fs.access(publicPath);
+          imagePath = publicPath;
+        } catch {
+          imagePath = rootPath;
+        }
+      } else {
+        imagePath = path.join(baseDir, imageSrc);
+      }
 
       try {
         const buffer = await fs.readFile(imagePath);
@@ -48,6 +67,12 @@ async function processHtml(html: string, config: ResolvedConfig, options: ImageS
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
           config.logger.warn(`[vite-plugin-image-sizes] Failed to get size for ${imagePath}: ${(error as Error).message}`);
+        } else {
+          // In dev mode, if not found, we don't need to warn as it might be a dynamic asset.
+          // In build mode, it's a potential issue.
+          if (!isDev) {
+             config.logger.warn(`[vite-plugin-image-sizes] Image not found at ${imagePath}`);
+          }
         }
       }
     })();
@@ -72,7 +97,8 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       if (config.command !== 'serve') {
         return html;
       }
-      return processHtml(html, config, options);
+      // For dev, base directory is project root
+      return processHtml(html, config, options, config.root);
     },
 
     async closeBundle() {
@@ -81,11 +107,12 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       }
       
       const outDir = config.build.outDir || 'dist';
-      const htmlFiles = await glob.glob(`${outDir}/**/*.html`);
+      const resolvedOutDir = path.resolve(config.root, outDir);
+      const htmlFiles = await glob(`${resolvedOutDir}/**/*.html`);
 
       for (const file of htmlFiles) {
         const htmlContent = await fs.readFile(file, 'utf-8');
-        const processedHtml = await processHtml(htmlContent, config, options);
+        const processedHtml = await processHtml(htmlContent, config, options, resolvedOutDir);
         await fs.writeFile(file, processedHtml, 'utf-8');
       }
       config.logger.info('[vite-plugin-image-sizes] Processed HTML files after bundle.');
