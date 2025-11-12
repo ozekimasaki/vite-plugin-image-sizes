@@ -1,19 +1,57 @@
 // This file will contain the plugin logic. 
-
-import type { Plugin, ResolvedConfig } from 'vite';
+import type { Plugin, ResolvedConfig, IndexHtmlTransformContext } from 'vite';
 import path from 'path';
 import fs from 'fs/promises';
-import sharp from 'sharp';
 import { load } from 'cheerio';
 import { glob } from 'glob';
+import { createSemaphore } from './concurrency.js';
+import { pickFirstFromSrcOrSrcset } from './utils/html.js';
+import {
+  normalizeUrl,
+  stripQueryAndHash,
+  removeBasePrefix,
+  isAbsoluteLike,
+  tryReadFile,
+  resolveCandidatePaths,
+} from './utils/path.js';
 
 export interface ImageSizeOptions {
   addLazyLoading?: boolean;
+  includeTags?: Array<'img' | 'source'>;
+  concurrency?: number;
+  enableCache?: boolean;
 }
 
-async function processHtml(html: string, config: ResolvedConfig, options: ImageSizeOptions, baseDir: string): Promise<string> {
+interface ResolveContext {
+  mode: 'dev' | 'build';
+  htmlDir: string;
+  outRoot: string;
+}
+
+type SharpModule = typeof import('sharp');
+let cachedSharp: SharpModule | null = null;
+async function getSharp(): Promise<SharpModule> {
+  if (cachedSharp) return cachedSharp;
+  const mod = (await import('sharp')) as any;
+  cachedSharp = (mod?.default ?? mod) as SharpModule;
+  return cachedSharp;
+}
+
+async function processHtml(
+  html: string,
+  config: ResolvedConfig,
+  options: Required<Pick<ImageSizeOptions, 'addLazyLoading' | 'includeTags' | 'enableCache'>>,
+  ctx: ResolveContext,
+  helpers: {
+    semaphore: ReturnType<typeof createSemaphore>;
+    metadataCache: Map<string, { width: number; height: number }>;
+  }
+): Promise<string> {
   const $ = load(html);
-  const elements = $('img, source');
+  const selector = (options.includeTags && options.includeTags.length > 0)
+    ? options.includeTags.join(', ')
+    : 'img, source';
+  const elements = $(selector);
   const imagePromises: Promise<void>[] = [];
 
   elements.each((_, el) => {
@@ -24,40 +62,63 @@ async function processHtml(html: string, config: ResolvedConfig, options: ImageS
 
       if (!src) return;
 
-      const imageUrl = src.split(',')[0].trim().split(' ')[0];
-      
-      if (/^(https?|data):/.test(imageUrl) || imageUrl.includes('__VITE_PUBLIC_ASSET__')) {
+      // Early skip when both dimensions already present
+      if (element.attr('width') && element.attr('height')) {
         return;
       }
-      
-      // Remove leading slash for path joining
-      const imageSrc = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
 
-      // In dev mode, assets can be in /public or in the project root.
-      // We check both locations.
-      const isDev = config.command === 'serve';
-      const publicPath = path.join(config.publicDir, imageSrc);
-      const rootPath = path.join(config.root, imageSrc);
+      const first = pickFirstFromSrcOrSrcset(src);
+      const withoutQh = stripQueryAndHash(first);
+      const normalized = normalizeUrl(withoutQh);
 
-      let imagePath: string;
-
-      if (isDev) {
-        try {
-          await fs.access(publicPath);
-          imagePath = publicPath;
-        } catch {
-          imagePath = rootPath;
-        }
-      } else {
-        imagePath = path.join(baseDir, imageSrc);
+      if (/^(https?|data):/i.test(normalized) || normalized.includes('__VITE_PUBLIC_ASSET__')) {
+        return;
       }
 
+      const absoluteLike = isAbsoluteLike(normalized, config.base);
+      const candidates = resolveCandidatePaths({
+        normalizedUrl: normalized,
+        absoluteLike,
+        config,
+        htmlDir: ctx.htmlDir,
+        outRoot: ctx.outRoot,
+        mode: ctx.mode,
+      });
+
       try {
-        const buffer = await fs.readFile(imagePath);
-        const metadata = await sharp(buffer).metadata();
-        if (metadata.width && metadata.height) {
-          if (!element.attr('width')) element.attr('width', metadata.width.toString());
-          if (!element.attr('height')) element.attr('height', metadata.height.toString());
+        const found = await tryReadFile(candidates);
+        if (!found) {
+          // Not found
+          if (ctx.mode === 'build') {
+            config.logger.warn(`[vite-plugin-image-sizes] Image not found: ${normalized}`);
+          }
+          return;
+        }
+        const buffer = found.buffer;
+        const cacheKey = found.path;
+        let width: number | undefined;
+        let height: number | undefined;
+
+        // Use cache if available
+        if (options.enableCache && helpers.metadataCache.has(cacheKey)) {
+          const cached = helpers.metadataCache.get(cacheKey)!;
+          width = cached.width;
+          height = cached.height;
+        } else {
+          const metadata = await helpers.semaphore.withLimit(async () => {
+            const sharp = await getSharp();
+            return sharp(buffer).metadata();
+          });
+          width = metadata.width;
+          height = metadata.height;
+          if (options.enableCache && width && height) {
+            helpers.metadataCache.set(cacheKey, { width, height });
+          }
+        }
+
+        if (width && height) {
+          if (!element.attr('width')) element.attr('width', width.toString());
+          if (!element.attr('height')) element.attr('height', height.toString());
 
           // Add lazy loading only if image size is successfully obtained
           if (options.addLazyLoading && element.is('img') && !element.attr('loading')) {
@@ -65,15 +126,9 @@ async function processHtml(html: string, config: ResolvedConfig, options: ImageS
           }
         }
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          config.logger.warn(`[vite-plugin-image-sizes] Failed to get size for ${imagePath}: ${(error as Error).message}`);
-        } else {
-          // In dev mode, if not found, we don't need to warn as it might be a dynamic asset.
-          // In build mode, it's a potential issue.
-          if (!isDev) {
-             config.logger.warn(`[vite-plugin-image-sizes] Image not found at ${imagePath}`);
-          }
-        }
+        config.logger.warn(
+          `[vite-plugin-image-sizes] Failed to get image size: ${(error as Error).message}`
+        );
       }
     })();
     imagePromises.push(promise);
@@ -85,6 +140,14 @@ async function processHtml(html: string, config: ResolvedConfig, options: ImageS
 
 export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
   let config: ResolvedConfig;
+  const resolved: Required<Pick<ImageSizeOptions, 'addLazyLoading' | 'includeTags' | 'enableCache' | 'concurrency'>> = {
+    addLazyLoading: options.addLazyLoading ?? false,
+    includeTags: options.includeTags ?? ['img', 'source'],
+    concurrency: options.concurrency ?? 8,
+    enableCache: options.enableCache ?? true,
+  };
+  const semaphore = createSemaphore(resolved.concurrency);
+  const metadataCache = new Map<string, { width: number; height: number }>();
 
   return {
     name: 'vite-plugin-image-sizes',
@@ -93,12 +156,23 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       config = resolvedConfig;
     },
 
-    async transformIndexHtml(html: string) {
+    async transformIndexHtml(html: string, ctx?: IndexHtmlTransformContext) {
       if (config.command !== 'serve') {
         return html;
       }
-      // For dev, base directory is project root
-      return processHtml(html, config, options, config.root);
+      // Use request path to derive HTML directory for relative URL resolution
+      const reqPath = ctx?.path ?? '/index.html';
+      const reqPathNoLead = reqPath.startsWith('/') ? reqPath.slice(1) : reqPath;
+      const htmlDir = path.resolve(config.root, path.dirname(reqPathNoLead));
+      return processHtml(html, config, {
+        addLazyLoading: resolved.addLazyLoading,
+        includeTags: resolved.includeTags,
+        enableCache: resolved.enableCache,
+      }, {
+        mode: 'dev',
+        htmlDir,
+        outRoot: config.root,
+      }, { semaphore, metadataCache });
     },
 
     async closeBundle() {
@@ -112,7 +186,16 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
 
       for (const file of htmlFiles) {
         const htmlContent = await fs.readFile(file, 'utf-8');
-        const processedHtml = await processHtml(htmlContent, config, options, resolvedOutDir);
+        const htmlDir = path.dirname(file);
+        const processedHtml = await processHtml(htmlContent, config, {
+          addLazyLoading: resolved.addLazyLoading,
+          includeTags: resolved.includeTags,
+          enableCache: resolved.enableCache,
+        }, {
+          mode: 'build',
+          htmlDir,
+          outRoot: resolvedOutDir,
+        }, { semaphore, metadataCache });
         await fs.writeFile(file, processedHtml, 'utf-8');
       }
       config.logger.info('[vite-plugin-image-sizes] Processed HTML files after bundle.');
