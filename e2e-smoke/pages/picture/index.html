@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>e2e smoke - picture</title>
+  </head>
+  <body>
+    <h1>Picture page</h1>
+    <!-- Test picture/source with absolute URL from publicDir -->
+    <picture>
+      <source srcset="/images/pub.svg 1x, /images/pub.svg 2x" />
+      <img src="/images/pub.svg" />
+    </picture>
+
+    <!-- Also include a relative reference living next to this HTML (reuse nested asset path style) -->
+    <img src="../sub/images/pic.svg" />
+  </body>
+  </html>
+
+
+

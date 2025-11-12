@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>e2e smoke - formats</title>
+  </head>
+  <body>
+    <h1>Formats page</h1>
+
+    <!-- Absolute (from public) various formats -->
+    <img id="abs-png" src="/images-bin/square.png" />
+    <img id="abs-jpg" src="/images-bin/square.jpg" />
+    <img id="abs-webp" src="/images-bin/square.webp" />
+    <img id="abs-avif" src="/images-bin/square.avif" />
+
+    <!-- Relative (next to this HTML) various formats -->
+    <img id="rel-png" src="./images/square.png" />
+    <img id="rel-jpg" src="./images/square.jpg" />
+    <img id="rel-webp" src="./images/square.webp" />
+    <img id="rel-avif" src="./images/square.avif" />
+
+    <!-- picture/srcset with multiple densities and types -->
+    <picture>
+      <source id="src-avif" type="image/avif" srcset="/images-bin/square.avif 1x, /images-bin/square.avif 2x" />
+      <source id="src-webp" type="image/webp" srcset="/images-bin/square.webp 1x, /images-bin/square.webp 2x" />
+      <img id="pic-fallback" src="/images-bin/square.jpg" />
+    </picture>
+  </body>
+  </html>
+
+
+

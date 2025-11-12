@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>e2e smoke - mixed</title>
+  </head>
+  <body>
+    <h1>Mixed paths page</h1>
+    <!-- Absolute from publicDir -->
+    <img src="/images/pub.svg" />
+
+    <!-- Relative within pages/mixed/ to sibling pages/sub/images -->
+    <img src="../sub/images/pic.svg" />
+
+    <!-- Climb up to project images/ (root of e2e-smoke) -->
+    <img src="../../images/root.svg" />
+  </body>
+  </html>
+
+
+
