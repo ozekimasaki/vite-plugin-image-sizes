@@ -23,6 +23,11 @@ This plugin uses the high-performance [sharp](https://sharp.pixelplumbing.com/) 
 -   **Supported Formats:** Supports many image formats handled by `sharp` (JPEG, PNG, WebP, GIF, SVG, etc.).
     -   **Note:** AVIF support depends on the version and build environment of `libvips`, which `sharp` relies on.
 
+## Requirements
+
+- Vite: ^7.0.0
+- Node.js: >= 22.12.0
+
 ## Installation
 
 ```bash
@@ -58,6 +63,13 @@ export default defineConfig({
 });
 ```
 
+## Path Resolution Rules
+
+- Absolute URLs (`/...` or prefixed with `base`): resolved from the build output root (build) or project root (dev).
+- Relative URLs (`./`, `../`, or filename only): resolved from the directory of each HTML file being processed.
+- `publicDir: false` is supported; resolution falls back to project root when `publicDir` is disabled.
+- Query (`?x=1`) and hash (`#y`) parts are ignored when locating files.
+
 ### Options
 
 #### `addLazyLoading`
@@ -66,6 +78,27 @@ export default defineConfig({
 -   **Default:** `false`
 
 If set to `true`, this option adds `loading="lazy"` to `<img>` tags that do not have a `loading` attribute. This is only applied if the image dimensions are successfully retrieved.
+
+#### `includeTags`
+
+-   **Type:** `Array<'img' | 'source'>`
+-   **Default:** `['img', 'source']`
+
+Specifies which tags to apply dimensions to. By default, both `<img>` and `<source>` are targeted. Note: `width`/`height` on `<source>` are generally ignored by browsers; they are added here for consistency across markup.
+
+#### `concurrency`
+
+-   **Type:** `number`
+-   **Default:** `8`
+
+Limits the number of concurrent image metadata reads. Increase if you have many small images and sufficient resources; decrease to reduce peak memory/FD usage.
+
+#### `enableCache`
+
+-   **Type:** `boolean`
+-   **Default:** `true`
+
+Enables an in-memory cache of image dimensions within a single dev session or build run, preventing duplicate work when the same file appears multiple times.
 
 ## License
 
