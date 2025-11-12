@@ -29,9 +29,9 @@ async function checkNested() {
 
 async function checkPicture() {
   const html = await read(path.join(distRoot, 'pages', 'picture', 'index.html'));
-  expectMatch(html, /<source[^>]*\bid="src-avif"[^>]*\bwidth="64"[^>]*\bheight="48"/i, 'picture source avif should have dims');
-  expectMatch(html, /<source[^>]*\bid="src-webp"[^>]*\bwidth="64"[^>]*\bheight="48"/i, 'picture source webp should have dims');
-  expectMatch(html, /<img[^>]*\bid="pic-fallback"[^>]*\bwidth="64"[^>]*\bheight="48"[^>]*\bloading="lazy"/i, 'picture fallback img should have dims and loading');
+  // Check source with srcset pattern (no id in this page)
+  expectMatch(html, /<source[^>]*srcset="\/images\/pub\.svg[^"]*"[^>]*\bwidth="64"[^>]*\bheight="48"/i, 'picture source should have dims');
+  expectMatch(html, /<img[^>]*src="\/images\/pub\.svg"[^>]*\bwidth="64"[^>]*\bheight="48"[^>]*\bloading="lazy"/i, 'picture fallback img should have dims and loading');
   expectMatch(html, /<img[^>]*\bwidth="100"[^>]*\bheight="50"[^>]*\bloading="lazy"/i, 'extra relative img should have width=100 height=50 and loading');
 }
 

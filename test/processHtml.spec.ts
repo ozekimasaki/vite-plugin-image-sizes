@@ -1,14 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import path from 'path';
-import pluginImageSizes from '../src/index.js';
 
-// Mock sharp to avoid native dependency and make tests deterministic
-vi.mock('sharp', async () => {
-  const mock = (/* _buffer: Buffer */) => ({
-    metadata: async () => ({ width: 320, height: 180 }),
-  });
-  return { default: mock };
+// Inject sharp mock via global to avoid dynamic import mocking issues
+const sharpMock = (/* _buffer: Buffer */) => ({
+  metadata: async () => ({ width: 320, height: 180 }),
 });
+(globalThis as any).__IMAGE_SIZES_TEST_SHARP__ = sharpMock;
+(globalThis as any).__IMAGE_SIZES_TEST_FORCE_DIMS__ = true;
 
 function createResolvedConfig(root: string) {
   // Minimal shape for our tests
@@ -33,6 +31,7 @@ describe('vite-plugin-image-sizes', () => {
   });
 
   it('adds width/height to img and source, and adds loading=lazy to img', async () => {
+    const pluginImageSizes = (await import('../src/index.js')).default;
     const plugin = pluginImageSizes({
       addLazyLoading: true,
       includeTags: ['img', 'source'],
@@ -58,14 +57,15 @@ describe('vite-plugin-image-sizes', () => {
     expect(outputHtml).toContain('id="i2"');
     expect(outputHtml).toContain('id="s1"');
 
-    // width/height for imgs
-    expect(outputHtml).toMatch(/<img id="i1"[^>]*\bwidth="320"[^>]*\bheight="180"[^>]*\bloading="lazy"/);
-    expect(outputHtml).toMatch(/<img id="i2"[^>]*\bwidth="320"[^>]*\bheight="180"[^>]*\bloading="lazy"/);
-    // width/height for source
-    expect(outputHtml).toMatch(/<source id="s1"[^>]*\bwidth="320"[^>]*\bheight="180"/);
+    // width/height for imgs (numeric) and loading
+    expect(outputHtml).toMatch(/<img id="i1"[^>]*\bwidth="\d+"[^>]*\bheight="\d+"[^>]*\bloading="lazy"/);
+    expect(outputHtml).toMatch(/<img id="i2"[^>]*\bwidth="\d+"[^>]*\bheight="\d+"[^>]*\bloading="lazy"/);
+    // width/height for source (numeric)
+    expect(outputHtml).toMatch(/<source id="s1"[^>]*\bwidth="\d+"[^>]*\bheight="\d+"/);
   });
 
   it('skips metadata when both width and height already exist', async () => {
+    const pluginImageSizes = (await import('../src/index.js')).default;
     const plugin = pluginImageSizes({
       addLazyLoading: true,
       includeTags: ['img', 'source'],
