@@ -16,6 +16,9 @@
     "test:build": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e:build": "node e2e-smoke/scripts/generate-images.mjs && npx vite build --config e2e-smoke/vite.config.ts",
+    "e2e:check": "node e2e-smoke/scripts/check-e2e.mjs",
+    "e2e": "npm run e2e:build && npm run e2e:check",
     "prepublishOnly": "npm run build"
   },
   "repository": {

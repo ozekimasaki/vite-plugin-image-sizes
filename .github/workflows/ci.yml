@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-test-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Generate E2E images
+        run: node e2e-smoke/scripts/generate-images.mjs
+
+      - name: Build E2E
+        run: npx vite build --config e2e-smoke/vite.config.ts
+
+      - name: Check E2E outputs
+        run: node e2e-smoke/scripts/check-e2e.mjs
+
+
