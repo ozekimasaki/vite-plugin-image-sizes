@@ -25,7 +25,7 @@ This plugin uses the high-performance [sharp](https://sharp.pixelplumbing.com/) 
 
 ## Requirements
 
-- Vite: ^7.0.0
+- Vite: ^7.0.0 || ^8.0.0
 - Node.js: >= 22.12.0
 
 ## Installation

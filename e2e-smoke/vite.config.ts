@@ -11,7 +11,7 @@ export default defineConfig({
   ],
   build: {
     assetsInlineLimit: 0,
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         nested: path.resolve(__dirname, 'pages/sub/index.html'),
