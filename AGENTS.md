@@ -27,6 +27,12 @@ Reflect the `scripts` in `package.json` exactly:
 - `npm run e2e`: Run the E2E build (`e2e:build`) and check (`e2e:check`).
 - `npm run test:build`: Verify a production build via `vite build`.
 
+There is **no** dedicated `lint` or `typecheck` script. Type checking is done by `tsc` as part of `npm run build` (strict mode). Run `npm run build` to catch type errors.
+
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push and pull request. On Node `22.x` it executes: `npm ci` → `npm run build` → `npm test` → generate E2E images → `vite build` (E2E config) → `node e2e-smoke/scripts/check-e2e.mjs`. Make sure these pass locally before opening a PR.
+
 ## Tech Stack and Conventions
 
 - Node.js `>=22.12.0` is required (see `engines`).

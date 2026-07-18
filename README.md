@@ -100,6 +100,50 @@ Limits the number of concurrent image metadata reads. Increase if you have many 
 
 Enables an in-memory cache of image dimensions within a single dev session or build run, preventing duplicate work when the same file appears multiple times.
 
+## Project Structure
+
+```text
+src/
+  index.ts          # Plugin entrypoint (default export `imageSizes`, Vite hooks)
+  concurrency.ts    # Semaphore that limits concurrent image reads
+  utils/
+    html.ts         # src/srcset parsing helper
+    path.ts         # URL normalization and candidate-path resolution
+test/               # Vitest unit tests
+e2e-smoke/          # End-to-end smoke test (fixtures, config, check scripts)
+```
+
+During `serve` (dev), HTML is processed on the fly via the `transformIndexHtml` hook. During `build`, the emitted HTML files are rewritten in the `closeBundle` hook. In both cases HTML is parsed with `cheerio` and image dimensions are read with `sharp`.
+
+## Development
+
+Requires Node.js `>=22.12.0` (see `engines` in `package.json`).
+
+```bash
+# install dependencies
+npm install
+
+# build the plugin (cleans dist, then compiles with tsc)
+npm run build
+
+# run unit tests once
+npm run test
+
+# run unit tests in watch mode
+npm run test:watch
+
+# run the end-to-end smoke test (build fixtures, then verify output)
+npm run e2e
+
+# verify a production build of the plugin itself
+npm run test:build
+
+# start the Vite dev server
+npm run dev
+```
+
+There is no separate lint or typecheck script; type checking is performed by `tsc` as part of `npm run build`. CI (`.github/workflows/ci.yml`) runs `npm run build`, `npm test`, and the E2E checks on Node 22.
+
 ## License
 
 [MIT](./LICENSE) 
