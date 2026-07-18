@@ -273,6 +273,16 @@ async function enableAutoMerge(owner, repo, number) {
   console.log(`  Enabled auto-merge for PR #${number}`);
 }
 
+async function refreshPr(owner, repo, number, attempts = 5, delay = 2000) {
+  for (let i = 0; i < attempts; i++) {
+    const pr = await fetchJson(`/repos/${owner}/${repo}/pulls/${number}`);
+    if (pr.mergeable !== null) return pr;
+    console.log(`    -> Waiting for mergeable state (${i + 1}/${attempts})...`);
+    await sleep(delay);
+  }
+  return fetchJson(`/repos/${owner}/${repo}/pulls/${number}`);
+}
+
 async function processRepo(repo, authUser) {
   const { name: repoName } = repo;
   let prs;
@@ -329,7 +339,7 @@ async function processRepo(repo, authUser) {
       }
 
       // Re-fetch the latest PR state after approval.
-      const freshPr = await fetchJson(`/repos/${OWNER}/${repoName}/pulls/${number}`);
+      const freshPr = await refreshPr(OWNER, repoName, number);
 
       if (freshPr.merged) {
         console.log('    -> Already merged.');
