@@ -1,4 +1,4 @@
-name: Auto review and merge minor PRs
+name: Auto review minor PRs
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Dry-run only (do not approve or merge)'
+        description: 'Dry-run only (do not approve)'
         required: false
         default: 'false'
         type: choice
@@ -29,9 +29,10 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Run auto-merge scanner
-        run: node .github/scripts/auto-merge.mjs
+      - name: Run auto-review scanner
+        run: node .github/scripts/auto-review.mjs
         env:
-          GITHUB_TOKEN: ${{ secrets.AUTO_MERGE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AUTO_REVIEW_TOKEN }}
           OWNER: ozekimasaki
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          AUTO_MERGE: 'false'

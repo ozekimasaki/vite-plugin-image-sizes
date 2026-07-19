@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Auto-review / auto-merge bot for all repositories owned by the configured OWNER.
-// Scans open PRs, identifies "minor" changes, approves them, and then merges or
-// enables GitHub auto-merge when all checks pass.
+// Auto-review bot for all repositories owned by the configured OWNER.
+// Scans open PRs, identifies "minor" changes, and approves them.
+// Set AUTO_MERGE=true to also merge or enable GitHub auto-merge (off by default).
 
-const TOKEN = process.env.GITHUB_TOKEN || process.env.AUTO_MERGE_TOKEN;
+const TOKEN = process.env.GITHUB_TOKEN || process.env.AUTO_REVIEW_TOKEN || process.env.AUTO_MERGE_TOKEN;
 const OWNER = process.env.OWNER || 'ozekimasaki';
 const DRY_RUN = (process.env.DRY_RUN || '').toLowerCase() === 'true';
+const AUTO_MERGE = (process.env.AUTO_MERGE || '').toLowerCase() === 'true';
 
 const TRUSTED_AUTHORS = (process.env.TRUSTED_AUTHORS || 'dependabot[bot],renovate[bot]')
   .split(',')
@@ -338,6 +339,11 @@ async function processRepo(repo, authUser) {
         console.log('    -> Already approved by this bot.');
       }
 
+      if (!AUTO_MERGE) {
+        console.log(DRY_RUN ? '  [DRY-RUN] Approved only (AUTO_MERGE=false).' : '    -> Approved only (AUTO_MERGE=false).');
+        continue;
+      }
+
       // Re-fetch the latest PR state after approval.
       const freshPr = await refreshPr(OWNER, repoName, number);
 
@@ -364,7 +370,7 @@ async function processRepo(repo, authUser) {
 
 async function run() {
   if (!TOKEN) {
-    console.error('Missing GITHUB_TOKEN or AUTO_MERGE_TOKEN environment variable.');
+    console.error('Missing GITHUB_TOKEN or AUTO_REVIEW_TOKEN environment variable.');
     process.exit(1);
   }
 
