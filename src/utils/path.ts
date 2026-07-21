@@ -51,20 +51,20 @@ export function resolveCandidatePaths(params: {
 }): string[] {
   const { normalizedUrl, absoluteLike, config, htmlDir, outRoot, mode } = params;
   const candidates: string[] = [];
-  const hasPublicDir =
-    typeof (config as any).publicDir === 'string' && (config as any).publicDir.length > 0;
+  const publicDir = config.publicDir;
+  const hasPublicDir = typeof publicDir === 'string' && publicDir.length > 0;
   const withoutBase = removeBasePrefix(normalizedUrl, config.base);
   const relFromRoot = withoutBase.startsWith('/') ? withoutBase.slice(1) : withoutBase;
 
   if (mode === 'dev') {
     if (absoluteLike) {
       if (hasPublicDir) {
-        candidates.push(path.resolve((config as any).publicDir, relFromRoot));
+        candidates.push(path.resolve(publicDir, relFromRoot));
       }
       candidates.push(path.resolve(config.root, relFromRoot));
     } else {
       candidates.push(path.resolve(htmlDir, normalizedUrl));
-      if (hasPublicDir) candidates.push(path.resolve((config as any).publicDir, normalizedUrl));
+      if (hasPublicDir) candidates.push(path.resolve(publicDir, normalizedUrl));
       candidates.push(path.resolve(config.root, normalizedUrl));
     }
   } else {

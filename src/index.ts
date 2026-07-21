@@ -28,7 +28,7 @@ interface ResolveContext {
   outRoot: string;
 }
 
-type SharpModule = typeof import('sharp');
+type SharpModule = typeof import('sharp').default;
 let cachedSharp: SharpModule | null = null;
 async function getSharp(): Promise<SharpModule> {
   if (cachedSharp) return cachedSharp;
@@ -199,9 +199,11 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       
       const outDir = config.build.outDir || 'dist';
       const resolvedOutDir = path.resolve(config.root, outDir);
-      const htmlFiles = await glob(`${resolvedOutDir}/**/*.html`);
+      // glob treats "\" as an escape character, so normalize Windows separators
+      const globPattern = `${resolvedOutDir.split(path.sep).join('/')}/**/*.html`;
+      const htmlFiles = await glob(globPattern);
 
-      for (const file of htmlFiles) {
+      await Promise.all(htmlFiles.map(async (file) => {
         const htmlContent = await fs.readFile(file, 'utf-8');
         const htmlDir = path.dirname(file);
         const processedHtml = await processHtml(htmlContent, config, {
@@ -214,7 +216,7 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
           outRoot: resolvedOutDir,
         }, { semaphore, metadataCache });
         await fs.writeFile(file, processedHtml, 'utf-8');
-      }
+      }));
       config.logger.info('[vite-plugin-image-sizes] Processed HTML files after bundle.');
     },
   };
