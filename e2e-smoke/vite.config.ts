@@ -11,7 +11,8 @@ export default defineConfig({
   ],
   build: {
     assetsInlineLimit: 0,
-    rolldownOptions: {
+    // rollupOptions は Vite 7 (Rollup) と Vite 8 (Rolldown) の両方で有効
+    rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         nested: path.resolve(__dirname, 'pages/sub/index.html'),
