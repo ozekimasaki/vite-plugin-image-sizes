@@ -1,0 +1,67 @@
+# GitHub Release 公開時に npm へ publish する。
+# 初回のみ npmjs.com のパッケージ設定で Trusted Publisher を登録すること:
+#   GitHub user: ozekimasaki
+#   Repository: vite-plugin-image-sizes
+#   Workflow filename: publish.yml
+#   Environment: (空)
+#   Allowed actions: npm publish
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: npm-publish-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+
+      - name: Ensure npm CLI supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Check version matches release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          tag="${RELEASE_TAG#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "Release tag '${RELEASE_TAG}' と package.json version '${pkg}' が一致しません"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        env:
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          extra=()
+          if [ "${IS_PRERELEASE}" = "true" ]; then
+            extra+=(--tag next)
+          fi
+          npm publish --access public --ignore-scripts "${extra[@]}"
