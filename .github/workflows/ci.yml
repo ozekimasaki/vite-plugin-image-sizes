@@ -31,11 +31,5 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Generate E2E images
-        run: node e2e-smoke/scripts/generate-images.mjs
-
-      - name: Build E2E
-        run: npx vite build --config e2e-smoke/vite.config.ts
-
-      - name: Check E2E outputs
-        run: node e2e-smoke/scripts/check-e2e.mjs
+      - name: E2E (Vite 6 / 7 / 8)
+        run: npm run e2e

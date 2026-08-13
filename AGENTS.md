@@ -13,7 +13,7 @@ Guidelines for coding agents working in this repository. Keep everything here co
 - `src/utils/html.ts`: HTML/srcset parsing helpers, e.g. `pickFirstFromSrcOrSrcset`.
 - `src/utils/path.ts`: Path resolution helpers: `normalizeUrl`, `stripQueryAndHash`, `removeBasePrefix`, `isAbsoluteLike`, `tryReadFile`, `resolveCandidatePaths`.
 - `test/processHtml.spec.ts`: Unit tests (Vitest).
-- `e2e-smoke/`: End-to-end smoke test. `scripts/generate-images.mjs` generates test images, `scripts/check-e2e.mjs` verifies the output, and `vite.config.ts` holds the build configuration.
+- `e2e-smoke/`: End-to-end smoke test. `scripts/generate-images.mjs` generates test images, `scripts/run-build.mjs` builds with Vite 6 / 7 / 8 (`VITE_MAJOR_VERSION`), `scripts/check-e2e.mjs` verifies the output, and `vite.config.ts` is a Vite 8 convenience config for manual builds.
 - `README.md`, `README.ja.md`, `README.zh-CN.md`: Documentation (English, Japanese, Simplified Chinese).
 
 ## Development Commands
@@ -24,7 +24,8 @@ Reflect the `scripts` in `package.json` exactly:
 - `npm run build`: Clean `dist` and compile with `tsc` (`clean` + `tsc`).
 - `npm run test`: Run unit tests once (`vitest run`).
 - `npm run test:watch`: Run unit tests in watch mode (`vitest`).
-- `npm run e2e`: Run the E2E build (`e2e:build`) and check (`e2e:check`).
+- `npm run e2e`: Generate fixtures, then build and check against Vite 6, 7, and 8.
+- `npm run e2e:vite6` / `e2e:vite7` / `e2e:vite8`: Build and check a single Vite major (`e2e:build` + `e2e:check`).
 - `npm run test:build`: Verify a production build via `vite build`.
 
 ## Tech Stack and Conventions
@@ -33,7 +34,7 @@ Reflect the `scripts` in `package.json` exactly:
 - ESM only (`"type": "module"`). Relative imports must use the `.js` extension (e.g. `./concurrency.js`, `./utils/html.js`). The `import` statements in `src/index.ts` follow this convention — match it in new code.
 - TypeScript runs in strict mode (`tsconfig.json`: `strict: true`, `target`/`module`: `ESNext`, `moduleResolution: bundler`, `declaration: true`).
 - Runtime dependencies: `cheerio` (HTML parsing), `glob` (finding built HTML files), `sharp` (image metadata).
-- `vite` is a peer dependency (`^7.0.0 || ^8.0.0`).
+- `vite` is a peer dependency (`^6.0.0 || ^7.0.0 || ^8.0.0`).
 - Plugin options (`ImageSizeOptions`):
   - `addLazyLoading` (default `false`): add `loading="lazy"` to `<img>` tags that lack a `loading` attribute, only when dimensions are successfully retrieved.
   - `includeTags` (default `['img', 'source']`): which tags to apply dimensions to.

@@ -3,6 +3,8 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import imageSizes from '../dist/index.js';
 
+// 手動の Vite 8 ビルド用。行列テストは scripts/run-build.mjs がインライン設定で実行する。
+
 const e2eRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
@@ -14,7 +16,7 @@ export default defineConfig({
   ],
   build: {
     assetsInlineLimit: 0,
-    // rollupOptions は Vite 7 (Rollup) と Vite 8 (Rolldown) の両方で有効
+    // rollupOptions は Vite 6 / 7 (Rollup) と Vite 8 (Rolldown) で有効
     rollupOptions: {
       input: {
         main: path.resolve(e2eRoot, 'index.html'),
