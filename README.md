@@ -18,14 +18,14 @@ This plugin uses the high-performance [sharp](https://sharp.pixelplumbing.com/) 
 
 -   Automatically adds `width` and `height` attributes to `<img>` and `<source>` tags.
 -   **During Development (`serve`):** Operates at high speed using the `transformIndexHtml` hook.
--   **During Build (`build`):** Reliably modifies the final HTML files using the `closeBundle` hook.
+-   **During Build (`build`):** Rewrites HTML assets in `generateBundle` (after Vite emits them), without a second disk glob.
 -   Optionally adds the `loading="lazy"` attribute.
 -   **Supported Formats:** Supports many image formats handled by `sharp` (JPEG, PNG, WebP, GIF, SVG, etc.).
     -   **Note:** AVIF support depends on the version and build environment of `libvips`, which `sharp` relies on.
 
 ## Requirements
 
-- Vite: ^7.0.0 || ^8.0.0
+- Vite: ^6.0.0 || ^7.0.0 || ^8.0.0
 - Node.js: >= 22.12.0
 
 ## Installation
@@ -42,8 +42,8 @@ pnpm add -D vite-plugin-image-sizes
 ```
 
 **Important:**
-From v1.0.4, both `sharp` and `glob` are bundled as runtime dependencies.
-You do **not** need to install them separately.
+`sharp` is a runtime dependency of this plugin.
+You do **not** need to install it separately.
 
 ## Usage
 

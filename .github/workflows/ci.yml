@@ -6,15 +6,23 @@ on:
   pull_request:
     branches: [ "**" ]
 
+permissions:
+  contents: read
+
 jobs:
   build-test-e2e:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           cache: 'npm'
@@ -28,13 +36,5 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Generate E2E images
-        run: node e2e-smoke/scripts/generate-images.mjs
-
-      - name: Build E2E
-        run: npx vite build --config e2e-smoke/vite.config.ts
-
-      - name: Check E2E outputs
-        run: node e2e-smoke/scripts/check-e2e.mjs
-
-
+      - name: E2E (Vite 6 / 7 / 8)
+        run: npm run e2e
