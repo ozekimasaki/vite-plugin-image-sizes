@@ -6,6 +6,13 @@ export function normalizeUrl(url: string): string {
   return url.replace(/\\/g, '/');
 }
 
+/** Vite の URL / bundle fileName は POSIX。path.dirname は Windows で区切りを変える */
+export function dirnamePosix(filePath: string): string {
+  const normalized = normalizeUrl(filePath);
+  const idx = normalized.lastIndexOf('/');
+  return idx <= 0 ? (idx === 0 ? '/' : '.') : normalized.slice(0, idx);
+}
+
 export function stripQueryAndHash(url: string): string {
   const idx = url.search(/[?#]/);
   return idx === -1 ? url : url.slice(0, idx);

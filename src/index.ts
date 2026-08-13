@@ -8,6 +8,7 @@ import { htmlMayContainTags, pickFirstFromSrcOrSrcset } from './utils/html.js';
 import {
   assetSourceToBuffer,
   assetSourceToString,
+  dirnamePosix,
   findBundleAsset,
   normalizeUrl,
   stripQueryAndHash,
@@ -249,7 +250,7 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       }
       const reqPath = ctx?.path ?? '/index.html';
       const reqPathNoLead = reqPath.startsWith('/') ? reqPath.slice(1) : reqPath;
-      const htmlDir = path.resolve(config.root, path.dirname(reqPathNoLead));
+      const htmlDir = path.resolve(config.root, dirnamePosix(reqPathNoLead));
       return processHtml(html, config, {
         addLazyLoading: resolved.addLazyLoading,
         includeTags: resolved.includeTags,
@@ -278,7 +279,7 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
 
       await Promise.all(htmlAssets.map(async (asset) => {
         const htmlContent = assetSourceToString(asset.source);
-        const htmlDir = path.resolve(config.root, path.dirname(asset.fileName));
+        const htmlDir = path.resolve(config.root, dirnamePosix(asset.fileName));
         const processedHtml = await processHtml(htmlContent, config, {
           addLazyLoading: resolved.addLazyLoading,
           includeTags: resolved.includeTags,
