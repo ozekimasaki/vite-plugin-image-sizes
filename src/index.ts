@@ -1,7 +1,6 @@
-// This file will contain the plugin logic. 
 import type { Plugin, ResolvedConfig, IndexHtmlTransformContext } from 'vite';
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { load } from 'cheerio';
 import { glob } from 'glob';
 import { createSemaphore } from './concurrency.js';
@@ -29,16 +28,41 @@ interface ResolveContext {
 }
 
 type SharpModule = typeof import('sharp').default;
-let cachedSharp: SharpModule | null = null;
-async function getSharp(): Promise<SharpModule> {
+type TestSharp = (input: Buffer) => {
+  metadata: () => Promise<{ width?: number; height?: number }>;
+};
+
+declare global {
+  var __IMAGE_SIZES_TEST_SHARP__: TestSharp | undefined;
+  var __IMAGE_SIZES_TEST_FORCE_DIMS__: boolean | undefined;
+}
+
+let cachedSharp: SharpModule | TestSharp | null = null;
+
+function isSharpModule(value: unknown): value is SharpModule {
+  return typeof value === 'function';
+}
+
+async function getSharp(): Promise<SharpModule | TestSharp> {
   if (cachedSharp) return cachedSharp;
-  const injected = (globalThis as any).__IMAGE_SIZES_TEST_SHARP__;
+
+  const injected = globalThis.__IMAGE_SIZES_TEST_SHARP__;
   if (injected) {
-    cachedSharp = injected as SharpModule;
+    cachedSharp = injected;
     return cachedSharp;
   }
-  const mod = (await import('sharp')) as any;
-  cachedSharp = (mod?.default ?? mod) as SharpModule;
+
+  const mod: unknown = await import('sharp');
+  const candidate =
+    typeof mod === 'object' && mod !== null && 'default' in mod
+      ? Reflect.get(mod, 'default')
+      : mod;
+
+  if (!isSharpModule(candidate)) {
+    throw new Error('[vite-plugin-image-sizes] Failed to load sharp');
+  }
+
+  cachedSharp = candidate;
   return cachedSharp;
 }
 
@@ -67,13 +91,11 @@ async function processHtml(
 
       if (!src) return;
 
-      // Early skip when both dimensions already present
       if (element.attr('width') && element.attr('height')) {
         return;
       }
 
-      // Test-only fast path to avoid IO/native deps flakiness
-      if ((globalThis as any).__IMAGE_SIZES_TEST_FORCE_DIMS__) {
+      if (globalThis.__IMAGE_SIZES_TEST_FORCE_DIMS__) {
         const tw = 320;
         const th = 180;
         if (!element.attr('width')) element.attr('width', String(tw));
@@ -105,7 +127,6 @@ async function processHtml(
       try {
         const found = await tryReadFile(candidates);
         if (!found) {
-          // Not found
           if (ctx.mode === 'build') {
             config.logger.warn(`[vite-plugin-image-sizes] Image not found: ${normalized}`);
           }
@@ -116,9 +137,8 @@ async function processHtml(
         let width: number | undefined;
         let height: number | undefined;
 
-        // Use cache if available
-        if (options.enableCache && helpers.metadataCache.has(cacheKey)) {
-          const cached = helpers.metadataCache.get(cacheKey)!;
+        const cached = options.enableCache ? helpers.metadataCache.get(cacheKey) : undefined;
+        if (cached) {
           width = cached.width;
           height = cached.height;
         } else {
@@ -137,14 +157,14 @@ async function processHtml(
           if (!element.attr('width')) element.attr('width', width.toString());
           if (!element.attr('height')) element.attr('height', height.toString());
 
-          // Add lazy loading only if image size is successfully obtained
           if (options.addLazyLoading && element.is('img') && !element.attr('loading')) {
             element.attr('loading', 'lazy');
           }
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         config.logger.warn(
-          `[vite-plugin-image-sizes] Failed to get image size: ${(error as Error).message}`
+          `[vite-plugin-image-sizes] Failed to get image size: ${message}`
         );
       }
     })();
@@ -177,7 +197,6 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       if (config.command !== 'serve') {
         return html;
       }
-      // Use request path to derive HTML directory for relative URL resolution
       const reqPath = ctx?.path ?? '/index.html';
       const reqPathNoLead = reqPath.startsWith('/') ? reqPath.slice(1) : reqPath;
       const htmlDir = path.resolve(config.root, path.dirname(reqPathNoLead));
@@ -196,10 +215,9 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       if (config.command !== 'build') {
         return;
       }
-      
+
       const outDir = config.build.outDir || 'dist';
       const resolvedOutDir = path.resolve(config.root, outDir);
-      // glob treats "\" as an escape character, so normalize Windows separators
       const globPattern = `${resolvedOutDir.split(path.sep).join('/')}/**/*.html`;
       const htmlFiles = await glob(globPattern);
 
@@ -220,4 +238,4 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       config.logger.info('[vite-plugin-image-sizes] Processed HTML files after bundle.');
     },
   };
-} 
+}

@@ -1,6 +1,6 @@
 import type { ResolvedConfig } from 'vite';
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 
 export function normalizeUrl(url: string): string {
   return url.replace(/\\/g, '/');

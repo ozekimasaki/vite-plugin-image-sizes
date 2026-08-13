@@ -1,5 +1,6 @@
 export function pickFirstFromSrcOrSrcset(raw: string): string {
-  return raw.split(',')[0].trim().split(' ')[0];
+  const firstCandidate = raw.split(',')[0] ?? '';
+  return (firstCandidate.trim().split(/\s+/)[0] ?? '');
 }
 
 
