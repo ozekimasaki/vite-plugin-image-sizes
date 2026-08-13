@@ -18,7 +18,7 @@
 
 -   自动为 `<img>` 和 `<source>` 标签添加 `width` 和 `height` 属性。
 -   **开发模式 (`serve`):** 使用 `transformIndexHtml` 钩子，实现高速运行。
--   **构建模式 (`build`):** 使用 `closeBundle` 钩子，对最终的 HTML 文件进行可靠的修改。
+-   **构建模式 (`build`):** 在 Vite emit HTML 之后用 `generateBundle` 改写，不再二次 glob 磁盘。
 -   可选择添加 `loading="lazy"` 属性。
 -   **支持的格式:** 支持 `sharp` 处理的多种图像格式 (JPEG, PNG, WebP, GIF, SVG 等)。
     -   **注意:** 对 AVIF 的支持取决于 `sharp` 所依赖的 `libvips` 的版本和构建环境。
@@ -41,9 +41,9 @@ yarn add vite-plugin-image-sizes
 pnpm add -D vite-plugin-image-sizes
 ```
 
-**重要：**  
-自 v1.0.4 起，`sharp` 和 `glob` 都已作为运行时依赖内置于插件中。  
-用户无需单独安装这些依赖。
+**重要：**
+`sharp` 是本插件的运行时依赖。
+用户无需单独安装。
 
 ## 使用方法
 

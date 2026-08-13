@@ -1,17 +1,21 @@
-import type { Plugin, ResolvedConfig, IndexHtmlTransformContext } from 'vite';
+import type { IndexHtmlTransformContext, Plugin, ResolvedConfig } from 'vite';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { availableParallelism } from 'node:os';
 import { load } from 'cheerio';
-import { glob } from 'glob';
 import { createSemaphore } from './concurrency.js';
-import { pickFirstFromSrcOrSrcset } from './utils/html.js';
+import { htmlMayContainTags, pickFirstFromSrcOrSrcset } from './utils/html.js';
 import {
+  assetSourceToBuffer,
+  assetSourceToString,
+  findBundleAsset,
   normalizeUrl,
   stripQueryAndHash,
-  removeBasePrefix,
   isAbsoluteLike,
-  tryReadFile,
+  tryStatFile,
   resolveCandidatePaths,
+  type BundleAsset,
+  type BundleLike,
 } from './utils/path.js';
 
 export interface ImageSizeOptions {
@@ -25,19 +29,39 @@ interface ResolveContext {
   mode: 'dev' | 'build';
   htmlDir: string;
   outRoot: string;
+  bundle?: BundleLike;
 }
 
 type SharpModule = typeof import('sharp').default;
 type TestSharp = (input: Buffer) => {
   metadata: () => Promise<{ width?: number; height?: number }>;
 };
+type Dims = { width: number; height: number };
 
 declare global {
   var __IMAGE_SIZES_TEST_SHARP__: TestSharp | undefined;
   var __IMAGE_SIZES_TEST_FORCE_DIMS__: boolean | undefined;
 }
 
+const SKIP_URL_RE = /^(https?|data):/i;
+const VITE_PUBLIC_ASSET_MARK = '__VITE_PUBLIC_ASSET__';
+
 let cachedSharp: SharpModule | TestSharp | null = null;
+
+function defaultConcurrency(): number {
+  try {
+    return Math.max(1, Math.min(8, availableParallelism()));
+  } catch {
+    return 8;
+  }
+}
+
+function isClientEnvironment(environment: {
+  name: string;
+  consumer?: string;
+}): boolean {
+  return environment.consumer === 'client' || environment.name === 'client';
+}
 
 function isSharpModule(value: unknown): value is SharpModule {
   return typeof value === 'function';
@@ -66,6 +90,22 @@ async function getSharp(): Promise<SharpModule | TestSharp> {
   return cachedSharp;
 }
 
+function applyDims(
+  element: {
+    attr: (name: string, value?: string) => string | undefined
+    is: (selector: string) => boolean
+  },
+  width: number,
+  height: number,
+  addLazyLoading: boolean,
+): void {
+  if (!element.attr('width')) element.attr('width', String(width));
+  if (!element.attr('height')) element.attr('height', String(height));
+  if (addLazyLoading && element.is('img') && !element.attr('loading')) {
+    element.attr('loading', 'lazy');
+  }
+}
+
 async function processHtml(
   html: string,
   config: ResolvedConfig,
@@ -73,17 +113,18 @@ async function processHtml(
   ctx: ResolveContext,
   helpers: {
     semaphore: ReturnType<typeof createSemaphore>;
-    metadataCache: Map<string, { width: number; height: number }>;
+    metadataCache: Map<string, Dims>;
   }
 ): Promise<string> {
+  if (options.includeTags.length === 0 || !htmlMayContainTags(html, options.includeTags)) {
+    return html;
+  }
+
   const $ = load(html);
-  const selector = (options.includeTags && options.includeTags.length > 0)
-    ? options.includeTags.join(', ')
-    : 'img, source';
-  const elements = $(selector);
+  const selector = options.includeTags.join(', ');
   const imagePromises: Promise<void>[] = [];
 
-  elements.each((_, el) => {
+  $(selector).each((_, el) => {
     const element = $(el);
     const promise = (async () => {
       const srcAttr = element.is('img') ? 'src' : 'srcset';
@@ -96,13 +137,7 @@ async function processHtml(
       }
 
       if (globalThis.__IMAGE_SIZES_TEST_FORCE_DIMS__) {
-        const tw = 320;
-        const th = 180;
-        if (!element.attr('width')) element.attr('width', String(tw));
-        if (!element.attr('height')) element.attr('height', String(th));
-        if (options.addLazyLoading && element.is('img') && !element.attr('loading')) {
-          element.attr('loading', 'lazy');
-        }
+        applyDims(element, 320, 180, options.addLazyLoading);
         return;
       }
 
@@ -110,56 +145,65 @@ async function processHtml(
       const withoutQh = stripQueryAndHash(first);
       const normalized = normalizeUrl(withoutQh);
 
-      if (/^(https?|data):/i.test(normalized) || normalized.includes('__VITE_PUBLIC_ASSET__')) {
+      if (SKIP_URL_RE.test(normalized) || normalized.includes(VITE_PUBLIC_ASSET_MARK)) {
         return;
       }
 
-      const absoluteLike = isAbsoluteLike(normalized, config.base);
-      const candidates = resolveCandidatePaths({
-        normalizedUrl: normalized,
-        absoluteLike,
-        config,
-        htmlDir: ctx.htmlDir,
-        outRoot: ctx.outRoot,
-        mode: ctx.mode,
-      });
+      let width: number | undefined;
+      let height: number | undefined;
+      let cacheKey: string | undefined;
+      let buffer: Buffer | undefined;
 
-      try {
-        const found = await tryReadFile(candidates);
+      const bundled = ctx.bundle
+        ? findBundleAsset(ctx.bundle, normalized, config.base)
+        : undefined;
+      if (bundled) {
+        cacheKey = `bundle:${bundled.fileName}`;
+        const cached = options.enableCache ? helpers.metadataCache.get(cacheKey) : undefined;
+        if (cached) {
+          applyDims(element, cached.width, cached.height, options.addLazyLoading);
+          return;
+        }
+        buffer = assetSourceToBuffer(bundled.source);
+      } else {
+        const absoluteLike = isAbsoluteLike(normalized, config.base);
+        const candidates = resolveCandidatePaths({
+          normalizedUrl: normalized,
+          absoluteLike,
+          config,
+          htmlDir: ctx.htmlDir,
+          outRoot: ctx.outRoot,
+          mode: ctx.mode,
+        });
+        const found = await tryStatFile(candidates);
         if (!found) {
           if (ctx.mode === 'build') {
             config.logger.warn(`[vite-plugin-image-sizes] Image not found: ${normalized}`);
           }
           return;
         }
-        const buffer = found.buffer;
-        const cacheKey = found.path;
-        let width: number | undefined;
-        let height: number | undefined;
-
+        cacheKey = `${found.path}:${found.mtimeMs}:${found.size}`;
         const cached = options.enableCache ? helpers.metadataCache.get(cacheKey) : undefined;
         if (cached) {
-          width = cached.width;
-          height = cached.height;
-        } else {
-          const metadata = await helpers.semaphore.withLimit(async () => {
-            const sharp = await getSharp();
-            return sharp(buffer).metadata();
-          });
-          width = metadata.width;
-          height = metadata.height;
-          if (options.enableCache && width && height) {
-            helpers.metadataCache.set(cacheKey, { width, height });
-          }
+          applyDims(element, cached.width, cached.height, options.addLazyLoading);
+          return;
+        }
+        buffer = await fs.readFile(found.path);
+      }
+
+      try {
+        const metadata = await helpers.semaphore.withLimit(async () => {
+          const sharp = await getSharp();
+          return sharp(buffer).metadata();
+        });
+        width = metadata.width;
+        height = metadata.height;
+        if (options.enableCache && cacheKey && width && height) {
+          helpers.metadataCache.set(cacheKey, { width, height });
         }
 
         if (width && height) {
-          if (!element.attr('width')) element.attr('width', width.toString());
-          if (!element.attr('height')) element.attr('height', height.toString());
-
-          if (options.addLazyLoading && element.is('img') && !element.attr('loading')) {
-            element.attr('loading', 'lazy');
-          }
+          applyDims(element, width, height, options.addLazyLoading);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -180,14 +224,20 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
   const resolved: Required<Pick<ImageSizeOptions, 'addLazyLoading' | 'includeTags' | 'enableCache' | 'concurrency'>> = {
     addLazyLoading: options.addLazyLoading ?? false,
     includeTags: options.includeTags ?? ['img', 'source'],
-    concurrency: options.concurrency ?? 8,
+    concurrency: options.concurrency ?? defaultConcurrency(),
     enableCache: options.enableCache ?? true,
   };
   const semaphore = createSemaphore(resolved.concurrency);
-  const metadataCache = new Map<string, { width: number; height: number }>();
+  const metadataCache = new Map<string, Dims>();
 
   return {
     name: 'vite-plugin-image-sizes',
+    // Vite の HTML emit より後に generateBundle を走らせる
+    enforce: 'post',
+
+    applyToEnvironment(environment) {
+      return isClientEnvironment(environment);
+    },
 
     configResolved(resolvedConfig) {
       config = resolvedConfig;
@@ -211,19 +261,24 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
       }, { semaphore, metadataCache });
     },
 
-    async closeBundle() {
+    async generateBundle(_outputOptions, bundle: BundleLike) {
       if (config.command !== 'build') {
         return;
       }
 
       const outDir = config.build.outDir || 'dist';
       const resolvedOutDir = path.resolve(config.root, outDir);
-      const globPattern = `${resolvedOutDir.split(path.sep).join('/')}/**/*.html`;
-      const htmlFiles = await glob(globPattern);
+      const htmlAssets = Object.values(bundle).filter(
+        (item): item is BundleAsset =>
+          item.type === 'asset' &&
+          typeof item.fileName === 'string' &&
+          item.fileName.endsWith('.html') &&
+          item.source !== undefined,
+      );
 
-      await Promise.all(htmlFiles.map(async (file) => {
-        const htmlContent = await fs.readFile(file, 'utf-8');
-        const htmlDir = path.dirname(file);
+      await Promise.all(htmlAssets.map(async (asset) => {
+        const htmlContent = assetSourceToString(asset.source);
+        const htmlDir = path.resolve(config.root, path.dirname(asset.fileName));
         const processedHtml = await processHtml(htmlContent, config, {
           addLazyLoading: resolved.addLazyLoading,
           includeTags: resolved.includeTags,
@@ -232,10 +287,16 @@ export default function imageSizes(options: ImageSizeOptions = {}): Plugin {
           mode: 'build',
           htmlDir,
           outRoot: resolvedOutDir,
+          bundle,
         }, { semaphore, metadataCache });
-        await fs.writeFile(file, processedHtml, 'utf-8');
+        asset.source = processedHtml;
       }));
-      config.logger.info('[vite-plugin-image-sizes] Processed HTML files after bundle.');
+
+      if (htmlAssets.length > 0) {
+        config.logger.info(
+          `[vite-plugin-image-sizes] Processed ${htmlAssets.length} HTML file(s) in generateBundle.`,
+        );
+      }
     },
   };
 }

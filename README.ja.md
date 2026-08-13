@@ -18,7 +18,7 @@ HTML内の`<img>`および`<source>`タグに、`width`と`height`属性を自�
 
 -   `<img>`および`<source>`タグに`width`と`height`属性を自動で追加します。
 -   **開発時** (`serve`): `transformIndexHtml` フックにより、高速に動作します。
--   **ビルド時** (`build`): `closeBundle` フックにより、最終的なHTMLファイルに確実な変更を加えます。
+-   **ビルド時** (`build`): Vite が HTML を emit したあと `generateBundle` で書き換えます。ディスクへの再 glob はしません。
 -   `loading="lazy"` 属性をオプションで追加できます。
 -   **対応形式:** `sharp`がサポートする多くの画像形式（JPEG, PNG, WebP, GIF, SVGなど）に対応しています。
     -   **注意:** AVIFは、`sharp`が依存する`libvips`のバージョンやビルド環境によって対応状況が異なります。
@@ -42,7 +42,7 @@ pnpm add -D vite-plugin-image-sizes
 ```
 
 **重要:**
-v1.0.4 以降、`sharp` および `glob` はプラグインに内包されています。
+`sharp` はプラグインのランタイム依存です。
 利用者が個別にインストールする必要はありません。
 
 ## 使い方
